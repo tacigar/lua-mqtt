@@ -179,6 +179,21 @@ static int clientConnect(lua_State *L)
 }
 
 /*
+** This function attempts to disconnect the client from the MQTT server.
+*/
+static int clientDisconnect(lua_State *L)
+{
+    int rc;
+    Client *client = (Client *)luaL_checkudata(L, 1, MQTT_CLIENT_CLASS);
+    int timeout = luaL_checkinteger(L, 2);
+
+    rc = MQTTClient_disconnect(client->m_client, timeout);
+
+    lua_pushnumber(L, rc);
+    return 1;
+}
+
+/*
 ** Module entry point.
 */
 LUALIB_API int luaopen_mqtt_Client(lua_State *L)
