@@ -36,9 +36,7 @@ function Client:publish(topicName, msg)
 	if type(msg) == "string" then
 		msg = { payload = msg }
 	end
-
-	local tokenBase = self._base:publish(topicName, msg)
-	return Token(tokenBase)
+	return self._base:publish(topicName, msg)
 end
 
 return Client

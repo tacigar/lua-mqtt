@@ -31,13 +31,17 @@ typedef struct ClientBase
 ** implementation of this function to enable asynchronous receipt of messages.
 */
 static int onMessageArrivedCB(void *context, char *topicName,
-                               int topicLen, MQTTClient_message *message)
+                              int topicLen, MQTTClient_message *message)
 {
     int res;
     ClientBase *client = (ClientBase *)context;
 
     lua_rawgeti(client->m_L, LUA_REGISTRYINDEX, client->m_onMessageArrived);
-    lua_pushlstring(client->m_L, topicName, topicLen);
+    if (topicLen == 0) {
+        lua_pushstring(client->m_L, topicName);
+    } else {
+        lua_pushlstring(client->m_L, topicName, topicLen);
+    }
 
     lua_newtable(client->m_L);
     lua_pushlstring(client->m_L, message->payload, message->payloadlen);
@@ -98,17 +102,17 @@ static int clientBaseSetCallbacks(lua_State *L)
     
     if (lua_type(L, 2) == LUA_TFUNCTION) {
         lua_pushvalue(L, 2);
-        client->m_onConnectionLost = luaL_ref(L, -1);
+        client->m_onConnectionLost = luaL_ref(L, LUA_REGISTRYINDEX);
         onConnectionLost = onConnectionLostCB;
     }
     if (lua_type(L, 3) == LUA_TFUNCTION) {
         lua_pushvalue(L, 3);
-        client->m_onDeliveryComplete = luaL_ref(L, -1);
+        client->m_onMessageArrived = luaL_ref(L, LUA_REGISTRYINDEX);
         onMessageArrived = onMessageArrivedCB;
     }
     if (lua_type(L, 4) == LUA_TFUNCTION) {
         lua_pushvalue(L, 4);
-        client->m_onMessageArrived = luaL_ref(L, -1);
+        client->m_onDeliveryComplete = luaL_ref(L, LUA_REGISTRYINDEX);
         onDeliveryComplete = onDeliveryCompleteCB;
     }
 
