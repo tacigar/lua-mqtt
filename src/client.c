@@ -175,13 +175,31 @@ static int clientDisconnect(lua_State *L)
 }
 
 /*
+** This function allows the client application to test whether or not a client
+** is currently connected to the MQTT server.
+*/
+static int clientIsConnected(lua_State *L)
+{
+    int res;
+    Client *client = (Client *)luaL_checkudata(L, 1, MQTT_CLIENT_CLASS);
+
+    res = MQTTClient_isConnected(client->m_client);
+ 
+    lua_pushboolean(L, res);
+    return 1;
+}
+
+
+/*
 ** Module entry point.
 */
 LUALIB_API int luaopen_mqtt_Client(lua_State *L)
 {
     struct luaL_Reg *ptr;
     struct luaL_Reg methods[] = {
-        { "connect", clientConnect },
+        { "connect",      clientConnect     },
+        { "disconnect",   clientDisconnect  },
+        { "isConnected",  clientIsConnected },
         { NULL, NULL }
     };
 
