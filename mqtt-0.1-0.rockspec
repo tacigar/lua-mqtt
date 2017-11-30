@@ -17,8 +17,8 @@ description = {
 build = {
   type = "builtin",
   modules = {
-    ["mqtt.Client"] = {
-      sources = { "src/client.c", "src/token.c" },
+    ["mqtt.ClientBase"] = {
+      sources = { "src/client_base.c", "src/token.c" },
       incdirs = {
         "/src",
         "$(PAHO_MQTT_INCDIR)",        

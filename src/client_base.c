@@ -12,21 +12,21 @@
 
 #include "token.h"
 
-#define MQTT_CLIENT_CLASS "mqtt.client"
+#define MQTT_CLIENT_BASE_CLASS "mqtt.ClientBase"
 
 /*
 ** Synchronous client class.
 */
-typedef struct Client
+typedef struct ClientBase
 {
     MQTTClient m_client;
-} Client;
+} ClientBase;
 
 /*
 ** This function creates an MQTT client ready for connection to the specified 
 ** server and using the specified persistent storage.
 */
-static int clientCreate(lua_State *L)
+static int clientBaseCreate(lua_State *L)
 {
     int rc;
     const char *serverURI = luaL_checkstring(L, 1);
@@ -35,7 +35,7 @@ static int clientCreate(lua_State *L)
     int persistenceType = MQTTCLIENT_PERSISTENCE_NONE;
     void *persistenceContext = NULL;
 
-    Client *client = (Client *)lua_newuserdata(L, sizeof(Client));
+    ClientBase *client = (ClientBase *)lua_newuserdata(L, sizeof(ClientBase));
     rc = MQTTClient_create(&(client->m_client), serverURI, clientID, 
                            persistenceType, persistenceContext);
 
@@ -45,7 +45,7 @@ static int clientCreate(lua_State *L)
         return 2;
     }
 
-    luaL_getmetatable(L, MQTT_CLIENT_CLASS);
+    luaL_getmetatable(L, MQTT_CLIENT_BASE_CLASS);
     lua_setmetatable(L, -2);
     return 1;
 }
@@ -54,11 +54,11 @@ static int clientCreate(lua_State *L)
 ** This function attempts to connect a previously-created client to an MQTT 
 ** server using the specified options.
 */
-static int clientConnect(lua_State *L)
+static int clientBaseConnect(lua_State *L)
 {
     int rc;
-    Client *client;
-    client = (Client *)luaL_checkudata(L, 1, MQTT_CLIENT_CLASS);
+    ClientBase *client;
+    client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
     char **serverURIs;
 
     MQTTClient_connectOptions connOpts = MQTTClient_connectOptions_initializer;
@@ -165,10 +165,10 @@ static int clientConnect(lua_State *L)
 /*
 ** This function attempts to disconnect the client from the MQTT server.
 */
-static int clientDisconnect(lua_State *L)
+static int clientBaseDisconnect(lua_State *L)
 {
     int rc;
-    Client *client = (Client *)luaL_checkudata(L, 1, MQTT_CLIENT_CLASS);
+    ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
     int timeout = luaL_checkinteger(L, 2);
 
     rc = MQTTClient_disconnect(client->m_client, timeout);
@@ -181,10 +181,10 @@ static int clientDisconnect(lua_State *L)
 ** This function allows the client application to test whether or not a client
 ** is currently connected to the MQTT server.
 */
-static int clientIsConnected(lua_State *L)
+static int clientBaseIsConnected(lua_State *L)
 {
     int res;
-    Client *client = (Client *)luaL_checkudata(L, 1, MQTT_CLIENT_CLASS);
+    ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
 
     res = MQTTClient_isConnected(client->m_client);
  
@@ -195,10 +195,10 @@ static int clientIsConnected(lua_State *L)
 /*
 ** This function attempts to publish a message to a given topic.
 */
-static int clientPublish(lua_State *L)
+static int clientBasePublish(lua_State *L)
 {
     int rc;
-    Client *client = (Client *)luaL_checkudata(L, 1, MQTT_CLIENT_CLASS);
+    ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
     const char *topicName = luaL_checkstring(L, 2);
     MQTTClient_message msg = MQTTClient_message_initializer;
     MQTTClient_deliveryToken dt;
@@ -242,18 +242,18 @@ static int clientPublish(lua_State *L)
 /*
 ** Module entry point.
 */
-LUALIB_API int luaopen_mqtt_Client(lua_State *L)
+LUALIB_API int luaopen_mqtt_ClientBase(lua_State *L)
 {
     struct luaL_Reg *ptr;
     struct luaL_Reg methods[] = {
-        { "connect",      clientConnect     },
-        { "disconnect",   clientDisconnect  },
-        { "isConnected",  clientIsConnected },
-        { "publish",      clientPublish     },
+        { "connect",      clientBaseConnect     },
+        { "disconnect",   clientBaseDisconnect  },
+        { "isConnected",  clientBaseIsConnected },
+        { "publish",      clientBasePublish     },
         { NULL, NULL }
     };
 
-    luaL_newmetatable(L, MQTT_CLIENT_CLASS);
+    luaL_newmetatable(L, MQTT_CLIENT_BASE_CLASS);
 
     lua_pushstring(L, "__index");
     lua_newtable(L);
@@ -270,7 +270,7 @@ LUALIB_API int luaopen_mqtt_Client(lua_State *L)
 
     lua_newtable(L);
     lua_pushstring(L, "new");
-    lua_pushcfunction(L, clientCreate);
+    lua_pushcfunction(L, clientBaseCreate);
     lua_rawset(L, -3);
 
     return 1;
