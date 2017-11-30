@@ -43,5 +43,7 @@ build = {
         "paho-mqtt3c",
       },
     },
+    ["mqtt.Client"] = "src/client.lua",
+    ["mqtt.Token"] = "src/token.lua",
   },
 }
