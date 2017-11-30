@@ -1,4 +1,4 @@
-/* 
+/*
 ** lua-mqtt
 ** Copyright (C) 2017 tacigar
 */
@@ -10,7 +10,7 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-#include "token_base.h"
+#include "token.h"
 
 #define MQTT_CLIENT_BASE_CLASS "mqtt.ClientBase"
 
@@ -20,10 +20,107 @@
 typedef struct ClientBase
 {
     MQTTClient m_client;
+    lua_State *m_L;
+    int m_onMessageArrived;
+    int m_onDeliveryComplete;
+    int m_onConnectionLost;
 } ClientBase;
 
 /*
-** This function creates an MQTT client ready for connection to the specified 
+** This is a callback function. The client application must provide an
+** implementation of this function to enable asynchronous receipt of messages.
+*/
+static int onMessageArrivedCB(void *context, char *topicName,
+                               int topicLen, MQTTClient_message *message)
+{
+    int res;
+    ClientBase *client = (ClientBase *)context;
+
+    lua_rawgeti(client->m_L, LUA_REGISTRYINDEX, client->m_onMessageArrived);
+    lua_pushlstring(client->m_L, topicName, topicLen);
+
+    lua_newtable(client->m_L);
+    lua_pushlstring(client->m_L, message->payload, message->payloadlen);
+    lua_setfield(client->m_L, -2, "payload");
+    lua_pushnumber(client->m_L, message->qos);
+    lua_setfield(client->m_L, -2, "qos");
+    lua_pushboolean(client->m_L, message->retained);
+    lua_setfield(client->m_L, -2, "retained");
+    lua_pushboolean(client->m_L, message->dup);
+    lua_setfield(client->m_L, -2, "duplicate");
+
+    lua_call(client->m_L, 2, 1);
+
+    res = lua_tointeger(client->m_L, -1);
+    return res;
+}
+
+/*
+** This is a callback function. The client application must provide an
+** implementation of this function to enable asynchronous notification of
+** delivery of messages.
+*/
+static void onDeliveryCompleteCB(void *context, MQTTClient_deliveryToken dt)
+{
+    ClientBase *client = (ClientBase *)context;
+
+    lua_rawgeti(client->m_L, LUA_REGISTRYINDEX, client->m_onDeliveryComplete);
+    tokenCreate(client->m_L, client->m_client, dt);
+
+    lua_call(client->m_L, 1, 0);
+}
+
+/*
+** This is a callback function. The client application must provide an
+** implementation of this function to enable asynchronous notification of the
+** loss of connection to the server.
+*/
+static void onConnectionLostCB(void *context, char *cause)
+{
+    ClientBase *client = (ClientBase *)context;
+
+    lua_rawgeti(client->m_L, LUA_REGISTRYINDEX, client->m_onConnectionLost);
+    lua_pushstring(client->m_L, cause);
+
+    lua_call(client->m_L, 1, 0);
+}
+
+/*
+** This function sets the callback functions for a specific client.
+*/
+static int clientBaseSetCallbacks(lua_State *L)
+{
+    int rc;
+    ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
+    MQTTClient_connectionLost *onConnectionLost = NULL;
+    MQTTClient_messageArrived *onMessageArrived = NULL;
+    MQTTClient_deliveryComplete *onDeliveryComplete = NULL;
+    
+    if (lua_type(L, 2) == LUA_TFUNCTION) {
+        lua_pushvalue(L, 2);
+        client->m_onConnectionLost = luaL_ref(L, -1);
+        onConnectionLost = onConnectionLostCB;
+    }
+    if (lua_type(L, 3) == LUA_TFUNCTION) {
+        lua_pushvalue(L, 3);
+        client->m_onDeliveryComplete = luaL_ref(L, -1);
+        onMessageArrived = onMessageArrivedCB;
+    }
+    if (lua_type(L, 4) == LUA_TFUNCTION) {
+        lua_pushvalue(L, 4);
+        client->m_onMessageArrived = luaL_ref(L, -1);
+        onDeliveryComplete = onDeliveryCompleteCB;
+    }
+
+    rc = MQTTClient_setCallbacks(client->m_client, client, onConnectionLost,
+                                 onMessageArrived, onDeliveryComplete);
+
+    lua_pushnumber(L, rc);
+    return 1;
+}
+
+/*
+** This function creates an MQTT client ready for connection to the specified
 ** server and using the specified persistent storage.
 */
 static int clientBaseCreate(lua_State *L)
@@ -31,13 +128,14 @@ static int clientBaseCreate(lua_State *L)
     int rc;
     const char *serverURI = luaL_checkstring(L, 1);
     const char *clientID = luaL_checkstring(L, 2);
-    
+
     int persistenceType = MQTTCLIENT_PERSISTENCE_NONE;
     void *persistenceContext = NULL;
 
     ClientBase *client = (ClientBase *)lua_newuserdata(L, sizeof(ClientBase));
-    rc = MQTTClient_create(&(client->m_client), serverURI, clientID, 
+    rc = MQTTClient_create(&(client->m_client), serverURI, clientID,
                            persistenceType, persistenceContext);
+    client->m_L = L;
 
     if (rc != MQTTCLIENT_SUCCESS) {
         lua_pushnil(L);
@@ -51,7 +149,7 @@ static int clientBaseCreate(lua_State *L)
 }
 
 /*
-** This function attempts to connect a previously-created client to an MQTT 
+** This function attempts to connect a previously-created client to an MQTT
 ** server using the specified options.
 */
 static int clientBaseConnect(lua_State *L)
@@ -65,11 +163,11 @@ static int clientBaseConnect(lua_State *L)
     MQTTClient_willOptions willOpts = MQTTClient_willOptions_initializer;
 
     client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
-    
+
     lua_pushnil(L);
     while (lua_next(L, 2)) {
         const char *key = lua_tostring(L, -2);
-        
+
         if (strcmp(key, "keepAliveInterval") == 0) {
             connOpts.keepAliveInterval = luaL_checkinteger(L, -1);
         } else if (strcmp(key, "cleanSession") == 0) {
@@ -90,7 +188,7 @@ static int clientBaseConnect(lua_State *L)
             lua_pushnil(L);
             while (lua_next(L, -1)) {
                 const char *key = lua_tostring(L, -2);
-                
+
                 if (strcmp(key, "topicName") == 0) {
                     willOpts.topicName = luaL_checkstring(L, -1);
                 } else if (strcmp(key, "message") == 0) {
@@ -132,20 +230,20 @@ static int clientBaseConnect(lua_State *L)
 
             serverURIs = malloc(len * sizeof(char *));;
             connOpts.serverURIcount = len;
-            
+
             for (i = 0; i < len; ++i) {
                 lua_pushnumber(L, i + 1);
                 lua_gettable(L, -2);
 
                 const char *serverURI = luaL_checkstring(L, -1);
-                serverURIs[i] = 
+                serverURIs[i] =
                     (char *)malloc(sizeof(char) * (strlen(serverURI) + 1));
                 strcpy(serverURIs[i], serverURI);
 
                 lua_pop(L, 1);
             }
             connOpts.serverURIs = serverURIs;
-        } 
+        }
         lua_pop(L, 1);
     }
 
@@ -188,7 +286,7 @@ static int clientBaseIsConnected(lua_State *L)
     ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
 
     res = MQTTClient_isConnected(client->m_client);
- 
+
     lua_pushboolean(L, res);
     return 1;
 }
@@ -205,7 +303,7 @@ static int clientBaseSubscribe(lua_State *L)
     int qos = luaL_checkinteger(L, 3);
 
     rc = MQTTClient_subscribe(client->m_client, topic, qos);
-    lua_pushinteger(L, rc);
+    lua_pushnumber(L, rc);
 
     return 1;
 }
@@ -252,7 +350,7 @@ static int clientBasePublish(lua_State *L)
         free(buffer);
     }
 
-    tokenBaseCreate(L, client->m_client, dt);
+    tokenCreate(L, client->m_client, dt);
     return 1;
 }
 
@@ -263,11 +361,12 @@ LUALIB_API int luaopen_mqtt_ClientBase(lua_State *L)
 {
     struct luaL_Reg *ptr;
     struct luaL_Reg methods[] = {
-        { "connect",      clientBaseConnect     },
-        { "disconnect",   clientBaseDisconnect  },
-        { "isConnected",  clientBaseIsConnected },
-        { "subscribe",    clientBaseSubscribe   },
-        { "publish",      clientBasePublish     },
+        { "setCallbacks", clientBaseSetCallbacks },
+        { "connect",      clientBaseConnect      },
+        { "disconnect",   clientBaseDisconnect   },
+        { "isConnected",  clientBaseIsConnected  },
+        { "subscribe",    clientBaseSubscribe    },
+        { "publish",      clientBasePublish      },
         { NULL, NULL }
     };
 
