@@ -18,7 +18,7 @@ build = {
   type = "builtin",
   modules = {
     ["mqtt.ClientBase"] = {
-      sources = { "src/client_base.c", "src/token.c" },
+      sources = { "src/client_base.c", "src/token_base.c" },
       incdirs = {
         "/src",
         "$(PAHO_MQTT_INCDIR)",        
@@ -30,8 +30,8 @@ build = {
         "paho-mqtt3c",
       },
     },
-    ["mqtt.Token"] = {
-      sources = { "src/token.c" },
+    ["mqtt.TokenBase"] = {
+      sources = { "src/token_base.c" },
       incdirs = {
         "/src",
         "$(PAHO_MQTT_INCDIR)",

@@ -10,7 +10,7 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-#include "token.h"
+#include "token_base.h"
 
 #define MQTT_CLIENT_BASE_CLASS "mqtt.ClientBase"
 
@@ -234,7 +234,7 @@ static int clientBasePublish(lua_State *L)
         free(buffer);
     }
 
-    tokenCreate(L, client->m_client, dt);
+    tokenBaseCreate(L, client->m_client, dt);
     return 1;
 }
 

@@ -7,18 +7,18 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-#include "token.h"
+#include "token_base.h"
 
 /*
 ** This function creates a Token object.
 */
-Token *tokenCreate(lua_State *L, MQTTClient client, int tk)
+TokenBase *tokenBaseCreate(lua_State *L, MQTTClient client, int tk)
 {
-    Token *token = (Token *)lua_newuserdata(L, sizeof(Token));
+    TokenBase *token = (TokenBase *)lua_newuserdata(L, sizeof(TokenBase));
     token->m_client = client;
     token->m_token = tk;
 
-    luaL_getmetatable(L, MQTT_TOKEN_CLASS);
+    luaL_getmetatable(L, MQTT_TOKEN_BASE_CLASS);
     lua_setmetatable(L, -2);
     return token;
 }
@@ -27,10 +27,10 @@ Token *tokenCreate(lua_State *L, MQTTClient client, int tk)
 ** This function is called by the client application to synchronize execution
 **  of the main thread with completed publication of a message. 
 */
-static int tokenWait(lua_State *L)
+static int tokenBaseWait(lua_State *L)
 {
     int rc;
-    Token *token = (Token *)luaL_checkudata(L, 1, MQTT_TOKEN_CLASS);
+    TokenBase *token = (TokenBase *)luaL_checkudata(L, 1, MQTT_TOKEN_BASE_CLASS);
     int timeout = luaL_checkinteger(L, 2);
     
     rc = MQTTClient_waitForCompletion(token->m_client, token->m_token, timeout);
@@ -42,15 +42,15 @@ static int tokenWait(lua_State *L)
 /*
 ** Module entry point.
 */
-LUALIB_API int luaopen_mqtt_Token(lua_State *L)
+LUALIB_API int luaopen_mqtt_TokenBase(lua_State *L)
 {
     struct luaL_Reg *ptr;
     struct luaL_Reg methods[] = {
-        { "wait", tokenWait },
+        { "wait", tokenBaseWait },
         { NULL, NULL }
     };
 
-    luaL_newmetatable(L, MQTT_TOKEN_CLASS);
+    luaL_newmetatable(L, MQTT_TOKEN_BASE_CLASS);
 
     lua_pushstring(L, "__index");
     lua_newtable(L);
