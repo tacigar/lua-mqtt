@@ -53,10 +53,9 @@ static int onMessageArrivedCB(void *context, char *topicName,
     lua_pushboolean(client->m_L, message->dup);
     lua_setfield(client->m_L, -2, "duplicate");
 
-    lua_call(client->m_L, 2, 1);
+    lua_call(client->m_L, 2, 0);
 
-    res = lua_tointeger(client->m_L, -1);
-    return res;
+    return 1;
 }
 
 /*
@@ -160,7 +159,7 @@ static int clientBaseConnect(lua_State *L)
 {
     int rc;
     ClientBase *client;
-    char **serverURIs;
+    char **serverURIs = NULL;
 
     MQTTClient_connectOptions connOpts = MQTTClient_connectOptions_initializer;
     MQTTClient_SSLOptions sslOpts = MQTTClient_SSLOptions_initializer;
@@ -253,7 +252,7 @@ static int clientBaseConnect(lua_State *L)
 
     rc = MQTTClient_connect(client->m_client, &connOpts);
 
-    if (connOpts.serverURIs) {
+    if (connOpts.serverURIs != NULL) {
         int i;
         for (i = 0; i < connOpts.serverURIcount; ++i) {
             free(connOpts.serverURIs[i]);
@@ -313,6 +312,53 @@ static int clientBaseSubscribe(lua_State *L)
 }
 
 /*
+** This function attempts to subscribe a client to a list of topics, which may
+** contain wildcards.
+*/
+static int clientBaseSubscribeMany(lua_State *L)
+{
+    int i;
+    int rc;
+    ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
+    
+    size_t len = lua_rawlen(L, 2);
+    
+    int *qoss = malloc(sizeof(int) * len);
+    char **topics = malloc(sizeof(char *) * len);
+
+    for (i = 0; i < len; ++i) {
+        lua_pushnumber(L, i + 1);
+        lua_gettable(L, -2);
+
+        lua_pushnil(L);
+        while (lua_next(L, -2)) {
+            const char *key = lua_tostring(L, -2);
+
+            if (strcmp(key, "topic") == 0) {
+                const char *topic = luaL_checkstring(L, -1);
+                topics[i] = (char *)malloc(sizeof(char) * (strlen(topic) + 1));
+                strcpy(topics[i], topic);
+            } else if (strcmp(key, "qos") == 0) {
+                qoss[i] = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+    }
+
+    rc = MQTTClient_subscribeMany(client->m_client, len, topics, qoss);
+    lua_pushnumber(L, rc);
+
+    for (i = 0; i < len; ++i) {
+        free(topics[i]);
+    }
+    free(topics);
+    free(qoss);
+
+    return 1;
+}
+
+/*
 ** This function attempts to publish a message to a given topic.
 */
 static int clientBasePublish(lua_State *L)
@@ -365,12 +411,13 @@ LUALIB_API int luaopen_mqtt_ClientBase(lua_State *L)
 {
     struct luaL_Reg *ptr;
     struct luaL_Reg methods[] = {
-        { "setCallbacks", clientBaseSetCallbacks },
-        { "connect",      clientBaseConnect      },
-        { "disconnect",   clientBaseDisconnect   },
-        { "isConnected",  clientBaseIsConnected  },
-        { "subscribe",    clientBaseSubscribe    },
-        { "publish",      clientBasePublish      },
+        { "setCallbacks",  clientBaseSetCallbacks  },
+        { "connect",       clientBaseConnect       },
+        { "disconnect",    clientBaseDisconnect    },
+        { "isConnected",   clientBaseIsConnected   },
+        { "subscribe",     clientBaseSubscribe     },
+        { "subscribeMany", clientBaseSubscribeMany },
+        { "publish",       clientBasePublish       },
         { NULL, NULL }
     };
 
