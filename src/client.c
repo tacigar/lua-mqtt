@@ -10,6 +10,8 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#include "token.h"
+
 #define MQTT_CLIENT_CLASS "mqtt.client"
 
 /*
@@ -189,6 +191,52 @@ static int clientIsConnected(lua_State *L)
     return 1;
 }
 
+/*
+** This function attempts to publish a message to a given topic.
+*/
+static int clientPublish(lua_State *L)
+{
+    int rc;
+    Client *client = (Client *)luaL_checkudata(L, 1, MQTT_CLIENT_CLASS);
+    const char *topicName = luaL_checkstring(L, 2);
+    MQTTClient_message msg = MQTTClient_message_initializer;
+    MQTTClient_deliveryToken dt;
+    char *buffer;
+
+    lua_pushnil(L);
+    while (lua_next(L, 3)) {
+        const char *key = luaL_checkstring(L, -2);
+
+        if (strcmp(key, "payload") == 0) {
+            int i;
+
+            const char *payload = luaL_checkstring(L, -1);
+            buffer = (char *)malloc(sizeof(char) * (strlen(payload) + 1));
+
+            msg.payloadlen = strlen(payload) + 1;
+            strcpy(buffer, payload);
+
+            msg.payload = (void *)payload;
+
+        } else if (strcmp(key, "qos") == 0) {
+            msg.qos = luaL_checkinteger(L, -1);
+        } else if (strcmp(key, "retained") == 0) {
+            msg.retained = lua_toboolean(L, -1);
+        } else if (strcmp(key, "duplicate") == 0) {
+            msg.dup = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
+    }
+
+    MQTTClient_publishMessage(client->m_client, topicName, &msg, &dt);
+    if (buffer) {
+        free(buffer);
+    }
+
+    tokenCreate(L, client->m_client, dt);
+    return 1;
+}
+
 
 /*
 ** Module entry point.
@@ -200,6 +248,7 @@ LUALIB_API int luaopen_mqtt_Client(lua_State *L)
         { "connect",      clientConnect     },
         { "disconnect",   clientDisconnect  },
         { "isConnected",  clientIsConnected },
+        { "publish",      clientPublish     },
         { NULL, NULL }
     };
 

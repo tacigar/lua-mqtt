@@ -18,9 +18,23 @@ build = {
   type = "builtin",
   modules = {
     ["mqtt.Client"] = {
-      sources = { "src/client.c" },
+      sources = { "src/client.c", "src/token.c" },
       incdirs = {
+        "/src",
         "$(PAHO_MQTT_INCDIR)",        
+      },
+      libdirs = {
+        "$(PAHO_MQTT_LIBDIR)",
+      },
+      libraries = {
+        "paho-mqtt3c",
+      },
+    },
+    ["mqtt.Token"] = {
+      sources = { "src/token.c" },
+      incdirs = {
+        "/src",
+        "$(PAHO_MQTT_INCDIR)",
       },
       libdirs = {
         "$(PAHO_MQTT_LIBDIR)",
