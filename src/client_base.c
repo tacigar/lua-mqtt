@@ -58,13 +58,14 @@ static int clientBaseConnect(lua_State *L)
 {
     int rc;
     ClientBase *client;
-    client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
     char **serverURIs;
 
     MQTTClient_connectOptions connOpts = MQTTClient_connectOptions_initializer;
     MQTTClient_SSLOptions sslOpts = MQTTClient_SSLOptions_initializer;
     MQTTClient_willOptions willOpts = MQTTClient_willOptions_initializer;
 
+    client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
+    
     lua_pushnil(L);
     while (lua_next(L, 2)) {
         const char *key = lua_tostring(L, -2);
@@ -193,6 +194,23 @@ static int clientBaseIsConnected(lua_State *L)
 }
 
 /*
+** This function attempts to subscribe a client to a single topic, which may
+** contain wildcards (see Subscription wildcards).
+*/
+static int clientBaseSubscribe(lua_State *L)
+{
+    int rc;
+    ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
+    const char *topic = luaL_checkstring(L, 2);
+    int qos = luaL_checkinteger(L, 3);
+
+    rc = MQTTClient_subscribe(client->m_client, topic, qos);
+    lua_pushinteger(L, rc);
+
+    return 1;
+}
+
+/*
 ** This function attempts to publish a message to a given topic.
 */
 static int clientBasePublish(lua_State *L)
@@ -238,7 +256,6 @@ static int clientBasePublish(lua_State *L)
     return 1;
 }
 
-
 /*
 ** Module entry point.
 */
@@ -249,6 +266,7 @@ LUALIB_API int luaopen_mqtt_ClientBase(lua_State *L)
         { "connect",      clientBaseConnect     },
         { "disconnect",   clientBaseDisconnect  },
         { "isConnected",  clientBaseIsConnected },
+        { "subscribe",    clientBaseSubscribe   },
         { "publish",      clientBasePublish     },
         { NULL, NULL }
     };
