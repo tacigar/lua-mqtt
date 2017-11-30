@@ -155,27 +155,8 @@ static int clientConnect(lua_State *L)
         free((char **)connOpts.serverURIs);
     }
 
-    switch (rc) {
-        case -1:
-            lua_pushstring(L, "connecttion error");
-            return 1;
-        case 1: 
-            lua_pushstring(L, "unacceptable protocol version");
-            return 1;
-        case 2:
-            lua_pushstring(L, "identifier rejected");
-            return 1;
-        case 3:
-            lua_pushstring(L, "server unavailable");
-            return 1;
-        case 4:
-            lua_pushstring(L, "bad user name or password");
-            return 1;
-        case 5:
-            lua_pushstring(L, "not authorized");
-            return 1;
-    }
-    return 0;
+    lua_pushnumber(L, rc);
+    return 1;
 }
 
 /*
