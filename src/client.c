@@ -59,7 +59,8 @@ static int clientConnect(lua_State *L)
     int rc;
     Client *client;
     client = (Client *)luaL_checkudata(L, 1, MQTT_CLIENT_CLASS);
-    
+    char **serverURIs;
+
     MQTTClient_connectOptions connOpts = MQTTClient_connectOptions_initializer;
     MQTTClient_SSLOptions sslOpts = MQTTClient_SSLOptions_initializer;
     MQTTClient_willOptions willOpts = MQTTClient_willOptions_initializer;
@@ -128,7 +129,7 @@ static int clientConnect(lua_State *L)
             int i;
             size_t len = lua_rawlen(L, -1);
 
-            char **serverURIs = malloc(len * sizeof(char *));;
+            serverURIs = malloc(len * sizeof(char *));;
             connOpts.serverURIcount = len;
             
             for (i = 0; i < len; ++i) {
@@ -136,10 +137,10 @@ static int clientConnect(lua_State *L)
                 lua_gettable(L, -2);
 
                 const char *serverURI = luaL_checkstring(L, -1);
-                char *buffer = (char *)malloc(sizeof(char) * (strlen(serverURI) + 1));
-                strcpy(buffer, serverURI);
-                
-                serverURIs[i] = buffer;
+                serverURIs[i] = 
+                    (char *)malloc(sizeof(char) * (strlen(serverURI) + 1));
+                strcpy(serverURIs[i], serverURI);
+
                 lua_pop(L, 1);
             }
             connOpts.serverURIs = serverURIs;
