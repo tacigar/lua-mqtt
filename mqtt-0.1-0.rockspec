@@ -9,7 +9,7 @@ source = {
 description = {
   summary = "A MQTT Client Library",
   detailed = [[
-    
+
   ]],
   license = "GPLv3",
 }
@@ -17,32 +17,20 @@ description = {
 build = {
   type = "builtin",
   modules = {
-    ["mqtt.ClientBase"] = {
+    ["mqtt.core.ClientBase"] = {
       sources = { "src/client_base.c", "src/token.c" },
-      incdirs = {
-        "/src",
-        "$(PAHO_MQTT_INCDIR)",        
-      },
-      libdirs = {
-        "$(PAHO_MQTT_LIBDIR)",
-      },
-      libraries = {
-        "paho-mqtt3c",
-      },
+      incdirs = { "/src", "$(PAHO_MQTT_INCDIR)" },
+      libdirs = { "$(PAHO_MQTT_LIBDIR)" },
+      libraries = { "paho-mqtt3c" },
     },
     ["mqtt.Token"] = {
       sources = { "src/token.c" },
-      incdirs = {
-        "/src",
-        "$(PAHO_MQTT_INCDIR)",
-      },
-      libdirs = {
-        "$(PAHO_MQTT_LIBDIR)",
-      },
-      libraries = {
-        "paho-mqtt3c",
-      },
+      incdirs = { "/src", "$(PAHO_MQTT_INCDIR)" },
+      libdirs = { "$(PAHO_MQTT_LIBDIR)" },
+      libraries = { "paho-mqtt3c" },
     },
+    ["mqtt.ClientBase"] = "src/client_base.lua",
     ["mqtt.Client"] = "src/client.lua",
+    ["mqtt.AsyncClient"] = "src/async_client.lua",
   },
 }

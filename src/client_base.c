@@ -15,7 +15,7 @@
 #define MQTT_CLIENT_BASE_CLASS "mqtt.ClientBase"
 
 /*
-** Synchronous client class.
+** Client class.
 */
 typedef struct ClientBase
 {
@@ -468,7 +468,7 @@ static int clientBaseDestroy(lua_State *L)
 /*
 ** Module entry point.
 */
-LUALIB_API int luaopen_mqtt_ClientBase(lua_State *L)
+LUALIB_API int luaopen_mqtt_core_ClientBase(lua_State *L)
 {
     struct luaL_Reg *ptr;
     struct luaL_Reg methods[] = {
