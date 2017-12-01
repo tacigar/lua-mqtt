@@ -69,7 +69,7 @@ LUALIB_API int luaopen_mqtt_core(lua_State *L)
     };
 
     lua_newtable(L);
-
+    ptr = funcs;
     do {
         lua_pushstring(L, ptr->name);
         lua_pushcfunction(L, ptr->func);
