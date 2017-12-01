@@ -9,7 +9,7 @@ source = {
 description = {
   summary = "A MQTT Client Library",
   detailed = [[
-
+    A MQTT Client Library
   ]],
   license = "GPLv3",
 }
@@ -29,6 +29,13 @@ build = {
       libdirs = { "$(PAHO_MQTT_LIBDIR)" },
       libraries = { "paho-mqtt3c" },
     },
+    ["mqtt.core"] = {
+      sources = { "src/mqtt.c" },
+      incdirs = { "/src", "$(PAHO_MQTT_INCDIR)" },
+      libdirs = { "$(PAHO_MQTT_LIBDIR)" },
+      libraries = { "paho-mqtt3c" },
+    },
+    ["mqtt"] = "src/init.lua",
     ["mqtt.ClientBase"] = "src/client_base.lua",
     ["mqtt.Client"] = "src/client.lua",
     ["mqtt.AsyncClient"] = "src/async_client.lua",
