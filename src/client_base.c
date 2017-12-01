@@ -55,6 +55,9 @@ static int onMessageArrivedCB(void *context, char *topicName,
 
     lua_call(client->m_L, 2, 0);
 
+    MQTTClient_freeMessage(&message);
+    MQTTClient_free(topicName);
+
     return 1;
 }
 
@@ -83,9 +86,12 @@ static void onConnectionLostCB(void *context, char *cause)
     ClientBase *client = (ClientBase *)context;
 
     lua_rawgeti(client->m_L, LUA_REGISTRYINDEX, client->m_onConnectionLost);
-    lua_pushstring(client->m_L, cause);
 
-    lua_call(client->m_L, 1, 0);
+    /* Currently, cause is always set to NULL.
+            lua_pushstring(client->m_L, cause);
+            lua_call(client->m_L, 1, 0);
+    */
+    lua_call(client->m_L, 0, 0);
 }
 
 /*
