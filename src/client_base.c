@@ -98,7 +98,7 @@ static int clientBaseSetCallbacks(lua_State *L)
     MQTTClient_connectionLost *onConnectionLost = NULL;
     MQTTClient_messageArrived *onMessageArrived = NULL;
     MQTTClient_deliveryComplete *onDeliveryComplete = NULL;
-    
+
     if (lua_type(L, 2) == LUA_TFUNCTION) {
         lua_pushvalue(L, 2);
         client->m_onConnectionLost = luaL_ref(L, LUA_REGISTRYINDEX);
@@ -320,9 +320,9 @@ static int clientBaseSubscribeMany(lua_State *L)
     int i;
     int rc;
     ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
-    
+
     size_t len = lua_rawlen(L, 2);
-    
+
     int *qoss = malloc(sizeof(int) * len);
     char **topics = malloc(sizeof(char *) * len);
 
@@ -405,6 +405,16 @@ static int clientBasePublish(lua_State *L)
 }
 
 /*
+** This function frees the memory allocated to an MQTT client
+*/
+static int clientBaseDestroy(lua_State *L)
+{
+    ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
+    MQTTClient_destroy(client->m_client);
+    return 0;
+}
+
+/*
 ** Module entry point.
 */
 LUALIB_API int luaopen_mqtt_ClientBase(lua_State *L)
@@ -418,6 +428,7 @@ LUALIB_API int luaopen_mqtt_ClientBase(lua_State *L)
         { "subscribe",     clientBaseSubscribe     },
         { "subscribeMany", clientBaseSubscribeMany },
         { "publish",       clientBasePublish       },
+        { "destroy",       clientBaseDestroy       },
         { NULL, NULL }
     };
 
