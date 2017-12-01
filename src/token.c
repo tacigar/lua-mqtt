@@ -1,4 +1,4 @@
-/* 
+/*
 ** lua-mqtt
 ** Copyright (C) 2017 tacigar
 */
@@ -25,17 +25,27 @@ Token *tokenCreate(lua_State *L, MQTTClient client, int tk)
 
 /*
 ** This function is called by the client application to synchronize execution
-**  of the main thread with completed publication of a message. 
+**  of the main thread with completed publication of a message.
 */
 static int tokenWait(lua_State *L)
 {
     int rc;
     Token *token = (Token *)luaL_checkudata(L, 1, MQTT_TOKEN_CLASS);
     int timeout = luaL_checkinteger(L, 2);
-    
+
     rc = MQTTClient_waitForCompletion(token->m_client, token->m_token, timeout);
 
     lua_pushnumber(L, rc);
+    return 1;
+}
+
+/*
+** This function returns a value of the token.
+*/
+static int tokenGetValue(lua_State *L)
+{
+    Token *token = (Token *)luaL_checkudata(L, 1, MQTT_TOKEN_CLASS);
+    lua_pushnumber(L, token->m_token);
     return 1;
 }
 
@@ -46,7 +56,8 @@ LUALIB_API int luaopen_mqtt_Token(lua_State *L)
 {
     struct luaL_Reg *ptr;
     struct luaL_Reg methods[] = {
-        { "wait", tokenWait },
+        { "wait",     tokenWait     },
+        { "getValue", tokenGetValue },
         { NULL, NULL }
     };
 
