@@ -359,6 +359,57 @@ static int clientBaseSubscribeMany(lua_State *L)
 }
 
 /*
+** This function attempts to remove an existing subscription made by the
+** specified client.
+*/
+static int clientBaseUnsubscribe(lua_State *L)
+{
+    int rc;
+    ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
+    const char *topic = luaL_checkstring(L, 2);
+
+    rc = MQTTClient_unsubscribe(client->m_client, topic);
+    lua_pushnumber(L, rc);
+
+    return 1;
+}
+
+/*
+** This function attempts to remove existing subscriptions to a list of topics
+** made by the specified client.
+*/
+static int clientBaseUnsubscribeMany(lua_State *L)
+{
+    int i;
+    int rc;
+    ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
+
+    size_t len = lua_rawlen(L, 2);
+
+    char **topics = malloc(sizeof(char *) * len);
+
+    for (i = 0; i < len; ++i) {
+        lua_pushnumber(L, i + 1);
+        lua_gettable(L, -2);
+
+        const char *topic = luaL_checkstring(L, -1);
+        topics[i] = (char *)malloc(sizeof(char) * (strlen(topic) + 1));
+        strcpy(topics[i], topic);
+
+        lua_pop(L, 1);
+    }
+
+    rc = MQTTClient_unsubscribeMany(client->m_client, len, topics);
+    lua_pushnumber(L, rc);
+
+    for (i = 0; i < len; ++i) {
+        free(topics[i]);
+    }
+
+    return 1;
+}
+
+/*
 ** This function attempts to publish a message to a given topic.
 */
 static int clientBasePublish(lua_State *L)
@@ -421,14 +472,16 @@ LUALIB_API int luaopen_mqtt_ClientBase(lua_State *L)
 {
     struct luaL_Reg *ptr;
     struct luaL_Reg methods[] = {
-        { "setCallbacks",  clientBaseSetCallbacks  },
-        { "connect",       clientBaseConnect       },
-        { "disconnect",    clientBaseDisconnect    },
-        { "isConnected",   clientBaseIsConnected   },
-        { "subscribe",     clientBaseSubscribe     },
-        { "subscribeMany", clientBaseSubscribeMany },
-        { "publish",       clientBasePublish       },
-        { "destroy",       clientBaseDestroy       },
+        { "setCallbacks",    clientBaseSetCallbacks    },
+        { "connect",         clientBaseConnect         },
+        { "disconnect",      clientBaseDisconnect      },
+        { "isConnected",     clientBaseIsConnected     },
+        { "subscribe",       clientBaseSubscribe       },
+        { "subscribeMany",   clientBaseSubscribeMany   },
+        { "unsubscribe",     clientBaseUnsubscribe     },
+        { "unsubscribeMany", clientBaseUnsubscribeMany },
+        { "publish",         clientBasePublish         },
+        { "destroy",         clientBaseDestroy         },
         { NULL, NULL }
     };
 
