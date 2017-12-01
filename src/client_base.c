@@ -467,7 +467,7 @@ static int clientBasePublish(lua_State *L)
 static int clientBaseDestroy(lua_State *L)
 {
     ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
-    MQTTClient_destroy(client->m_client);
+    MQTTClient_destroy(&(client->m_client));
     return 0;
 }
 
