@@ -21,6 +21,15 @@ typedef struct ClientBase
 {
     MQTTClient m_client;
     lua_State *m_L;
+
+    lua_State *m_onMessageArrivedTH;
+    lua_State *m_onDeliveryCompleteTH;
+    lua_State *m_onConnectionLostTH;
+
+    int m_onMessageArrivedTHHandler;
+    int m_onDeliveryCompleteTHHandler;
+    int m_onConnectionLostTHHandler;
+
     int m_onMessageArrived;
     int m_onDeliveryComplete;
     int m_onConnectionLost;
@@ -36,24 +45,30 @@ static int onMessageArrivedCB(void *context, char *topicName,
     int res;
     ClientBase *client = (ClientBase *)context;
 
-    lua_rawgeti(client->m_L, LUA_REGISTRYINDEX, client->m_onMessageArrived);
-    if (topicLen == 0) {
-        lua_pushstring(client->m_L, topicName);
-    } else {
-        lua_pushlstring(client->m_L, topicName, topicLen);
+    lua_State *th = client->m_onMessageArrivedTH;
+
+    if (th == NULL) {
+        return 1;
     }
 
-    lua_newtable(client->m_L);
-    lua_pushlstring(client->m_L, message->payload, message->payloadlen);
-    lua_setfield(client->m_L, -2, "payload");
-    lua_pushnumber(client->m_L, message->qos);
-    lua_setfield(client->m_L, -2, "qos");
-    lua_pushboolean(client->m_L, message->retained);
-    lua_setfield(client->m_L, -2, "retained");
-    lua_pushboolean(client->m_L, message->dup);
-    lua_setfield(client->m_L, -2, "duplicate");
+    lua_rawgeti(th, LUA_REGISTRYINDEX, client->m_onMessageArrived);
+    if (topicLen == 0) {
+        lua_pushstring(th, topicName);
+    } else {
+        lua_pushlstring(th, topicName, topicLen);
+    }
 
-    lua_call(client->m_L, 2, 0);
+    lua_newtable(th);
+    lua_pushlstring(th, message->payload, message->payloadlen);
+    lua_setfield(th, -2, "payload");
+    lua_pushnumber(th, message->qos);
+    lua_setfield(th, -2, "qos");
+    lua_pushboolean(th, message->retained);
+    lua_setfield(th, -2, "retained");
+    lua_pushboolean(th, message->dup);
+    lua_setfield(th, -2, "duplicate");
+
+    lua_call(th, 2, 0);
 
     MQTTClient_freeMessage(&message);
     MQTTClient_free(topicName);
@@ -70,10 +85,16 @@ static void onDeliveryCompleteCB(void *context, MQTTClient_deliveryToken dt)
 {
     ClientBase *client = (ClientBase *)context;
 
-    lua_rawgeti(client->m_L, LUA_REGISTRYINDEX, client->m_onDeliveryComplete);
-    tokenCreate(client->m_L, client->m_client, dt);
+    lua_State *th = client->m_onDeliveryCompleteTH;
 
-    lua_call(client->m_L, 1, 0);
+    if (th == NULL) {
+        return;
+    }
+
+    lua_rawgeti(th, LUA_REGISTRYINDEX, client->m_onDeliveryComplete);
+    tokenCreate(th, client->m_client, dt);
+
+    lua_call(th, 1, 0);
 }
 
 /*
@@ -85,13 +106,19 @@ static void onConnectionLostCB(void *context, char *cause)
 {
     ClientBase *client = (ClientBase *)context;
 
-    lua_rawgeti(client->m_L, LUA_REGISTRYINDEX, client->m_onConnectionLost);
+    lua_State *th = client->m_onConnectionLostTH;
+
+    if (th == NULL) {
+        return;
+    }
+
+    lua_rawgeti(th, LUA_REGISTRYINDEX, client->m_onConnectionLost);
 
     /* Currently, cause is always set to NULL.
-            lua_pushstring(client->m_L, cause);
-            lua_call(client->m_L, 1, 0);
+            lua_pushstring(th, cause);
+            lua_call(th, 1, 0);
     */
-    lua_call(client->m_L, 0, 0);
+    lua_call(th, 0, 0);
 }
 
 /*
@@ -101,28 +128,37 @@ static int clientBaseSetCallbacks(lua_State *L)
 {
     int rc;
     ClientBase *client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
-    MQTTClient_connectionLost *onConnectionLost = NULL;
-    MQTTClient_messageArrived *onMessageArrived = NULL;
-    MQTTClient_deliveryComplete *onDeliveryComplete = NULL;
+    client->m_onConnectionLostTH = NULL;
+    client->m_onMessageArrivedTH = NULL;
+    client->m_onDeliveryCompleteTH = NULL;
 
     if (lua_type(L, 2) == LUA_TFUNCTION) {
         lua_pushvalue(L, 2);
-        client->m_onConnectionLost = luaL_ref(L, LUA_REGISTRYINDEX);
-        onConnectionLost = onConnectionLostCB;
+        lua_State *th = lua_newthread(L);
+        client->m_onConnectionLostTH = th;
+        client->m_onConnectionLostTHHandler = luaL_ref(L, LUA_REGISTRYINDEX);
+        lua_xmove(L, th, 1);
+        client->m_onConnectionLost = luaL_ref(th, LUA_REGISTRYINDEX);
     }
     if (lua_type(L, 3) == LUA_TFUNCTION) {
         lua_pushvalue(L, 3);
-        client->m_onMessageArrived = luaL_ref(L, LUA_REGISTRYINDEX);
-        onMessageArrived = onMessageArrivedCB;
+        lua_State *th = lua_newthread(L);
+        client->m_onMessageArrivedTH = th;
+        client->m_onMessageArrivedTHHandler = luaL_ref(L, LUA_REGISTRYINDEX);
+        lua_xmove(L, th, 1);
+        client->m_onMessageArrived = luaL_ref(th, LUA_REGISTRYINDEX);
     }
     if (lua_type(L, 4) == LUA_TFUNCTION) {
         lua_pushvalue(L, 4);
-        client->m_onDeliveryComplete = luaL_ref(L, LUA_REGISTRYINDEX);
-        onDeliveryComplete = onDeliveryCompleteCB;
+        lua_State *th = lua_newthread(L);
+        client->m_onDeliveryCompleteTH = th;
+        client->m_onDeliveryCompleteTHHandler = luaL_ref(L, LUA_REGISTRYINDEX);
+        lua_xmove(L, th, 1);
+        client->m_onDeliveryComplete = luaL_ref(th, LUA_REGISTRYINDEX);
     }
 
-    rc = MQTTClient_setCallbacks(client->m_client, client, onConnectionLost,
-                                 onMessageArrived, onDeliveryComplete);
+    rc = MQTTClient_setCallbacks(client->m_client, client, onConnectionLostCB,
+                                 onMessageArrivedCB, onDeliveryCompleteCB);
 
     lua_pushnumber(L, rc);
     return 1;
