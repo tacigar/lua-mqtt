@@ -7,7 +7,7 @@ local mqtt = require "mqtt"
 
 local address = "tcp://localhost:1883"
 local topic = "MQTT Examples"
-local clientID = "ExampleClientPub"
+local clientID = "ExampleClientSub"
 local qos = 1
 
 local client = mqtt.Client {
@@ -21,7 +21,7 @@ io.write(string.format("for client %s using QoS%d\n\n", clientID, qos))
 client:subscribe(topic, qos)
 
 local topicName, message = client:receive(1000000)
-
+print(topicName, message)
 if topicName then
 	io.write("Message arrived\n")
 	io.write(string.format("  topic: %s\n", topicName))
