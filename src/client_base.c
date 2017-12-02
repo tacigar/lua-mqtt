@@ -10,6 +10,7 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#include "message.h"
 #include "token.h"
 
 #define MQTT_CLIENT_BASE_CLASS "mqtt.ClientBase"
@@ -58,16 +59,7 @@ static int onMessageArrivedCB(void *context, char *topicName,
         lua_pushlstring(th, topicName, topicLen);
     }
 
-    lua_newtable(th);
-    lua_pushlstring(th, message->payload, message->payloadlen);
-    lua_setfield(th, -2, "payload");
-    lua_pushnumber(th, message->qos);
-    lua_setfield(th, -2, "qos");
-    lua_pushboolean(th, message->retained);
-    lua_setfield(th, -2, "retained");
-    lua_pushboolean(th, message->dup);
-    lua_setfield(th, -2, "duplicate");
-
+    messageCreate(th, message);
     lua_call(th, 2, 0);
 
     MQTTClient_freeMessage(&message);
@@ -498,6 +490,46 @@ static int clientBasePublish(lua_State *L)
 }
 
 /*
+** This function performs a synchronous receive of incoming messages. It
+** should be used only when the client application has not set callback
+** methods to support asynchronous receipt of messages.
+*/
+static int clientBaseReceive(lua_State *L)
+{
+    int rc;
+    int topicLen;
+    char *topicName = NULL;
+    ClientBase * client = (ClientBase *)luaL_checkudata(L, 1, MQTT_CLIENT_BASE_CLASS);
+    MQTTClient_message *message = NULL;
+    unsigned long timeout = luaL_checkinteger(L, 2);
+
+    rc = MQTTClient_receive(client->m_client, &topicName, &topicLen, &message, timeout);
+
+    if (rc != MQTTCLIENT_TOPICNAME_TRUNCATED && rc != MQTTCLIENT_SUCCESS) {
+        return 0;
+    }
+
+    if (topicName == NULL) {
+        lua_pushnil(L);
+    } else if (rc == MQTTCLIENT_TOPICNAME_TRUNCATED) {
+        lua_pushlstring(L, topicName, topicLen);
+        MQTTClient_free(topicName);
+    } else {
+        lua_pushstring(L, topicName);
+        MQTTClient_free(topicName);
+    }
+
+    if (message == NULL) {
+        lua_pushnil(L);
+    } else {
+        messageCreate(L, message);
+        MQTTClient_freeMessage(&message);
+    }
+
+    return 2;
+}
+
+/*
 ** This function frees the memory allocated to an MQTT client
 */
 static int clientBaseDestroy(lua_State *L)
@@ -523,6 +555,7 @@ LUALIB_API int luaopen_mqtt_core_ClientBase(lua_State *L)
         { "unsubscribe",     clientBaseUnsubscribe     },
         { "unsubscribeMany", clientBaseUnsubscribeMany },
         { "publish",         clientBasePublish         },
+        { "receive",         clientBaseReceive         },
         { "destroy",         clientBaseDestroy         },
         { NULL, NULL }
     };

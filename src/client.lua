@@ -18,4 +18,11 @@ setmetatable(Client, {
 	__index = ClientBase,
 })
 
+--- This function performs a synchronous receive of incoming messages. It
+-- should be used only when the client application has not set callback
+-- methods to support asynchronous receipt of messages.
+function Client:receive(timeout)
+	return self._core:receive(timeout)
+end
+
 return Client
