@@ -40,6 +40,7 @@ static int mqttGetVersionInfo(lua_State *L)
         }
         lua_pushstring(L, infos[i].value);
         lua_setfield(L, -2, infos[i].name);
+        ++i;
     }
 
     return 1;
