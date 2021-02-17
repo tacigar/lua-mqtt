@@ -15,6 +15,10 @@
 
 #define MQTT_CLIENT_BASE_CLASS "mqtt.ClientBase"
 
+#if !defined(LUA_VERSION_NUM) || LUA_VERSION_NUM == 501
+#define lua_rawlen(L, i) lua_objlen((L), (i))
+#endif
+
 /*
 ** Client class.
 */
